@@ -129,7 +129,7 @@ const writeJobsToCsv = async(data) => {
   const csvWriter = createCsvWriter({
     path: 'csv/jobs.csv',
     header: [
-      { id: 'title', title: 'Author' },
+      { id: 'title', title: 'Title' },
       { id: 'company', title: 'Company' },
       { id: 'place', title: 'Place' },
       { id: 'type', title: 'Type' },
