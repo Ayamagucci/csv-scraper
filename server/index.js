@@ -12,7 +12,7 @@ const app = express();
 const scrapeJobs = async(page) => {
   try {
     // generate URL based on page num
-    const site = page === 1
+    const site = (page === 1)
       ? (`https://www.ranchwork.com/jcategory/all-ranch-jobs/`)
       : (`https://www.ranchwork.com/jcategory/all-ranch-jobs/page/${ page }/`);
 
@@ -58,23 +58,73 @@ const scrapeJobs = async(page) => {
   }
 };
 
-const scrapeMultiplePages = async(numPages) => {
-  const allJobs = [];
+// function for scraping seekers off site
+const scrapeSeekers = async(page) => {
+  try {
+    // generate URL based on page num
+    const site = (page === 1)
+      ? (`https://www.ranchwork.com/jcategory/seeking-ranch-job/`)
+      : (`https://www.ranchwork.com/jcategory/seeking-ranch-job/page/${ page }/`);
+
+    // fetch HTML content
+    const seekerQuery = await axios.get(site);
+
+    // load res data into Cheerio
+    const $ = cheerio.load(seekerQuery.data);
+
+    // select seeker elems using CSS selector
+    const seekerElems = $('.job-item');
+
+    // store scraped data into array
+    const seekers = [];
+
+    // iterate through seekerElems —> extract data **
+    seekerElems.each((i, seeker) => {
+
+      // skip filled / expired seekers
+      if ($(seeker).hasClass('filled-expired-job')) {
+        return;
+      }
+
+      // desired fields
+      const title = $(seeker).find('a').attr('title');
+      const company = $(seeker).find('.job-company').text().trim();
+      const place = $(seeker).find('.job-place').text().trim();
+      const type = $(seeker).find('.job-type').text().trim();
+      const date = $(seeker).find('.job-date').text().trim();
+
+      // add data to seekers array
+      seekers.push({ title, company, place, type, date });
+    });
+
+    // output scraped seekers
+    console.log(`Seekers on page ${ page } successfully scraped!`);
+    // console.dir(seekers);
+
+    return seekers;
+
+  } catch(err) {
+    console.error(`Error scraping seekers on page ${ page }: ${ err.message }`);
+  }
+};
+
+const scrapeMultiplePages = async(scraper, numPages) => {
+  const result = [];
 
   // iterate through all pages
   for (let page = 1; page <= numPages; page++) {
-    const jobs = await scrapeJobs(page);
-    allJobs.push(...jobs);
+    const data = await scraper(page);
+    result.push(...data);
   }
 
-  return allJobs;
+  return result;
 };
 
-// function for writing jobs to CSV
-const writeJobsToCsv = async(data) => {
+// function for writing jobs / seekers to CSV
+const writeToCsv = async(type, data) => {
   // create CSV writer w/ specified header fields
   const csvWriter = createCsvWriter({
-    path: 'csv/jobs.csv',
+    path: `csv/${ type }.csv`,
     header: [
       { id: 'title', title: 'Title' },
       { id: 'company', title: 'Company' },
@@ -88,22 +138,23 @@ const writeJobsToCsv = async(data) => {
     await csvWriter.writeRecords(data);
 
     // output message indicating success
-    console.log('Jobs successfully written to CSV file!');
+    console.log(`${ type[0].toUpperCase() + type.slice(1) } successfully written to CSV file!`);
     // console.dir(data);
 
   } catch(err) {
-    console.error(`Error writing data to CSV: ${ err }`);
+    console.error(`Error writing ${ type } to CSV: ${ err.message }`);
   }
 };
 
 // scrape site —> write data to CSV
 (async() => {
   // write jobs to CSV **
-  // const jobs = await scrapeJobs('https://www.ranchwork.com/jcategory/seeking-ranch-job');
-  // writeJobsToCsv(jobs);
+  const jobs = await scrapeMultiplePages(scrapeJobs, 49);
+  writeToCsv('jobs', jobs);
 
-  const jobs = await scrapeMultiplePages(49);
-  writeJobsToCsv(jobs);
+  // await seekers to CSV
+  const seekers = await scrapeMultiplePages(scrapeSeekers, 11);
+  writeToCsv('seekers', seekers);
 })();
 
 app.listen(PORT, () => {
