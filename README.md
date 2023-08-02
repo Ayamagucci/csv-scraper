@@ -1,6 +1,5 @@
 # Quotes Scraper
-- This is a Node.js application that scrapes data from a website & stores it in a CSV file.
-- The application uses **cheerio** library to parse the website's HTML content & extract specific data elements, & the **csv-writer** library to write the extracted data into a CSV file
+This is a Node.js application that scrapes data from a website & stores it in a CSV file.
 
 
 ## Setup
