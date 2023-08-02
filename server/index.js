@@ -25,6 +25,17 @@ const scrapeJobs = async(page) => {
     // select job elems using CSS selector
     const jobElems = $('.job-item');
 
+    /* extract hrefs from jobElems
+    const hrefs = jobElems
+      .map((i, job) => $(job).find('a').attr('href'))
+      .get();
+
+    // use Promise.all to fetch data concurrently
+    const specifics = await Promise.all(
+      hrefs.map((href) => scrapeSpecifics(href, page))
+    );
+    */
+
     // store scraped data into array
     const jobs = [];
 
@@ -43,8 +54,10 @@ const scrapeJobs = async(page) => {
       const type = $(job).find('.job-type').text().trim();
       const date = $(job).find('.job-date').text().trim();
 
+      // const { email, phone } = specifics[i];
+
       // add data to jobs array
-      jobs.push({ title, company, place, type, date });
+      jobs.push({ title, company, /* email, phone, */ place, type, date });
     });
 
     // output scraped jobs
@@ -75,6 +88,17 @@ const scrapeSeekers = async(page) => {
     // select seeker elems using CSS selector
     const seekerElems = $('.job-item');
 
+    /* extract hrefs from seekerElems
+    const hrefs = seekerElems
+      .map((i, seeker) => $(seeker).find('a').attr('href'))
+      .get();
+
+    // use Promise.all to fetch data concurrently
+    const specifics = await Promise.all(
+      hrefs.map((href) => scrapeSpecifics(href, page))
+    );
+    */
+
     // store scraped data into array
     const seekers = [];
 
@@ -93,8 +117,10 @@ const scrapeSeekers = async(page) => {
       const type = $(seeker).find('.job-type').text().trim();
       const date = $(seeker).find('.job-date').text().trim();
 
+      // const { email, phone } = specifics[i];
+
       // add data to seekers array
-      seekers.push({ title, company, place, type, date });
+      seekers.push({ title, company, /* email, phone, */ place, type, date });
     });
 
     // output scraped seekers
@@ -108,6 +134,24 @@ const scrapeSeekers = async(page) => {
   }
 };
 
+/*
+const scrapeSpecifics = async(url, page) => {
+  try {
+    const query = await axios.get(url);
+    const $ = cheerio.load(query.data);
+
+    const col9 = $('.col-md-9');
+    const email = col9.find('strong:contains("Email")').next().text().trim();
+    const phone = col9.find('strong:contains("Phone")').next().text().trim();
+
+    return { email, phone };
+
+  } catch(err) {
+    console.error(`Error scraping (email / phone) on page ${ page }: ${ err.message }`);
+  }
+};
+*/
+
 const scrapeMultiplePages = async(scraper, numPages) => {
   const result = [];
 
@@ -120,7 +164,7 @@ const scrapeMultiplePages = async(scraper, numPages) => {
   return result;
 };
 
-// function for writing jobs / seekers to CSV
+// function for writing jobs / seekers to CSV **
 const writeToCsv = async(type, data) => {
   // create CSV writer w/ specified header fields
   const csvWriter = createCsvWriter({
@@ -128,6 +172,8 @@ const writeToCsv = async(type, data) => {
     header: [
       { id: 'title', title: 'Title' },
       { id: 'company', title: 'Company' },
+      // { id: 'email', title: 'Email' },
+      // { id: 'phone', title: 'Phone' },
       { id: 'place', title: 'Place' },
       { id: 'type', title: 'Type' },
       { id: 'date', title: 'Date' }
@@ -152,7 +198,7 @@ const writeToCsv = async(type, data) => {
   const jobs = await scrapeMultiplePages(scrapeJobs, 49);
   writeToCsv('jobs', jobs);
 
-  // await seekers to CSV
+  // await seekers to CSV **
   const seekers = await scrapeMultiplePages(scrapeSeekers, 11);
   writeToCsv('seekers', seekers);
 })();
