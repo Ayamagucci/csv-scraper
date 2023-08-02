@@ -203,9 +203,10 @@ const scrapeMultiplePages = async(scraper, numPages) => {
   for (let page = 1; page <= numPages; page++) {
     const data = await scraper(page);
 
-    result.push(...data);
+    if (Array.isArray(data)) {
+      result.push(...data);
+    }
   }
-
   return result;
 };
 
