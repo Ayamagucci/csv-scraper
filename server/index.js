@@ -8,6 +8,36 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
 const app = express();
 
+const server = app.listen(PORT, () => {
+  console.log(`Server listening on PORT: ${ PORT }`);
+});
+
+const scrapeSpecifics = async(url, page) => {
+  try {
+    const query = await axios.get(url);
+    const $ = cheerio.load(query.data);
+
+    const details = {};
+
+    $('.col-md-9').each((i, elem) => {
+      const label = $(elem).prev('.col-md-3')
+        .text().trim().replace(':', '');
+
+      const val = $(elem).text().trim();
+
+      details[ label ] = val;
+    });
+
+    // console.log(`Specifics scraped from URL: ${ url }`);
+    // console.dir(details);
+
+    return details;
+
+  } catch(err) {
+    console.error(`Error scraping specifics on page ${ page }: ${ err.message }`);
+  }
+};
+
 // function for scraping jobs off site
 const scrapeJobs = async(page) => {
   try {
@@ -25,23 +55,14 @@ const scrapeJobs = async(page) => {
     // select job elems using CSS selector
     const jobElems = $('.job-item');
 
-    /* extract hrefs from jobElems
-    const hrefs = jobElems
-      .map((i, job) => $(job).find('a').attr('href'))
-      .get();
-
-    // use Promise.all to fetch data concurrently
-    const specifics = await Promise.all(
-      hrefs.map((href) => scrapeSpecifics(href, page))
-    );
-    */
-
     // store scraped data into array
     const jobs = [];
 
+    // store promises for each job
+    const promises = [];
+
     // iterate through jobElems —> extract data **
     jobElems.each((i, job) => {
-
       // skip filled / expired jobs
       if ($(job).hasClass('filled-expired-job')) {
         return;
@@ -54,11 +75,36 @@ const scrapeJobs = async(page) => {
       const type = $(job).find('.job-type').text().trim();
       const date = $(job).find('.job-date').text().trim();
 
-      // const { email, phone } = specifics[i];
+      // fetch specifics
+      const specificsPromise = scrapeSpecifics(
+        $(job).find('a').attr('href'), page
+      );
 
-      // add data to jobs array
-      jobs.push({ title, company, /* email, phone, */ place, type, date });
+      promises.push(specificsPromise.then((specifics) => {
+        const email = specifics[ 'Email' ];
+        const phone = specifics[ 'Phone' ];
+        const salary = specifics[ 'Salary' ];
+        const housing = specifics[ 'Housing Needed' ];
+        const experience = specifics[ 'Experience' ];
+
+        // add data to jobs array
+        jobs.push({
+          title,
+          company,
+          email,
+          phone,
+          salary,
+          housing,
+          experience,
+          place,
+          type,
+          date
+        });
+      }));
     });
+
+    // wait for all promises to resolve before continuing
+    await Promise.all(promises);
 
     // output scraped jobs
     console.log(`Jobs on page ${ page } successfully scraped!`);
@@ -88,23 +134,14 @@ const scrapeSeekers = async(page) => {
     // select seeker elems using CSS selector
     const seekerElems = $('.job-item');
 
-    /* extract hrefs from seekerElems
-    const hrefs = seekerElems
-      .map((i, seeker) => $(seeker).find('a').attr('href'))
-      .get();
-
-    // use Promise.all to fetch data concurrently
-    const specifics = await Promise.all(
-      hrefs.map((href) => scrapeSpecifics(href, page))
-    );
-    */
-
     // store scraped data into array
     const seekers = [];
 
+    // store promises for each seeker
+    const promises = [];
+
     // iterate through seekerElems —> extract data **
     seekerElems.each((i, seeker) => {
-
       // skip filled / expired seekers
       if ($(seeker).hasClass('filled-expired-job')) {
         return;
@@ -117,11 +154,36 @@ const scrapeSeekers = async(page) => {
       const type = $(seeker).find('.job-type').text().trim();
       const date = $(seeker).find('.job-date').text().trim();
 
-      // const { email, phone } = specifics[i];
+      // fetch specifics
+      const specificsPromise = scrapeSpecifics(
+        $(seeker).find('a').attr('href'), page
+      );
 
-      // add data to seekers array
-      seekers.push({ title, company, /* email, phone, */ place, type, date });
+      promises.push(specificsPromise.then((specifics) => {
+        const email = specifics[ 'Email' ];
+        const phone = specifics[ 'Phone' ];
+        const salary = specifics[ 'Salary' ];
+        const housing = specifics[ 'Housing Needed' ];
+        const experience = specifics[ 'Experience' ];
+
+        // add data to jobs array
+        seekers.push({
+          title,
+          company,
+          email,
+          phone,
+          salary,
+          housing,
+          experience,
+          place,
+          type,
+          date
+        });
+      }));
     });
+
+    // wait for all promises to resolve before continuing
+    await Promise.all(promises);
 
     // output scraped seekers
     console.log(`Seekers on page ${ page } successfully scraped!`);
@@ -134,31 +196,16 @@ const scrapeSeekers = async(page) => {
   }
 };
 
-/*
-const scrapeSpecifics = async(url, page) => {
-  try {
-    const query = await axios.get(url);
-    const $ = cheerio.load(query.data);
-
-    const col9 = $('.col-md-9');
-    const email = col9.find('strong:contains("Email")').next().text().trim();
-    const phone = col9.find('strong:contains("Phone")').next().text().trim();
-
-    return { email, phone };
-
-  } catch(err) {
-    console.error(`Error scraping (email / phone) on page ${ page }: ${ err.message }`);
-  }
-};
-*/
-
 const scrapeMultiplePages = async(scraper, numPages) => {
   const result = [];
 
   // iterate through all pages
   for (let page = 1; page <= numPages; page++) {
     const data = await scraper(page);
+
     result.push(...data);
+    // if (Array.isArray(data)) {
+    // }
   }
 
   return result;
@@ -172,9 +219,12 @@ const writeToCsv = async(type, data) => {
     header: [
       { id: 'title', title: 'Title' },
       { id: 'company', title: 'Company' },
-      // { id: 'email', title: 'Email' },
-      // { id: 'phone', title: 'Phone' },
+      { id: 'email', title: 'Email' },
+      { id: 'phone', title: 'Phone' },
       { id: 'place', title: 'Place' },
+      { id: 'salary', title: 'Salary' },
+      { id: 'housing', title: 'Housing' },
+      { id: 'experience', title: 'Experience' },
       { id: 'type', title: 'Type' },
       { id: 'date', title: 'Date' }
     ]
@@ -201,8 +251,9 @@ const writeToCsv = async(type, data) => {
   // await seekers to CSV **
   const seekers = await scrapeMultiplePages(scrapeSeekers, 11);
   writeToCsv('seekers', seekers);
-})();
 
-app.listen(PORT, () => {
-  console.log(`Server listening on PORT: ${ PORT }`);
-});
+  // manually close server after writing CSVs
+  server.close(() => {
+    console.log('Server closed!');
+  });
+})();
