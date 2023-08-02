@@ -3,74 +3,61 @@ const { PORT } = process.env;
 const express = require('express');
 const fs = require('fs');
 const axios = require('axios');
-const cheerio = require('cheerio');
+const puppeteer = require('puppeteer');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
 const app = express();
 
-// function for scraping jobs off site
-const scrapeJobs = async(page) => {
+// scrape jobs via Puppeteer (instead of cheerio)
+const scrapeJobs = async(browser, page) => {
   try {
     // generate URL based on page num
     const site = page === 1
       ? (`https://www.ranchwork.com/jcategory/all-ranch-jobs/`)
       : (`https://www.ranchwork.com/jcategory/all-ranch-jobs/page/${ page }/`);
 
-    // fetch HTML content
-    const jobQuery = await axios.get(site);
+    // navigate to pages
+    const jobPage = await browser.newPage();
+    await jobPage.goto(site, { waitUntil: 'domcontentloaded' });
 
-    // load res data into Cheerio
-    const $ = cheerio.load(jobQuery.data);
-
-    // select job elems using CSS selector
-    const jobElems = $('.job-item');
+    const jobElems = await jobPage.$$('.job-item');
 
     // store scraped data into array
     const jobs = [];
 
-    // iterate through jobElems —> extract data **
-    jobElems.each((i, job) => {
-
+    // iterate through all jobs
+    for (const jobElem of jobElems) {
       // skip filled / expired jobs
-      if ($(job).hasClass('filled-expired-job')) {
-        return;
+      if (await jobElem.$('.filled-expired-stamp')) {
+        continue;
       }
 
       // desired fields
-      const title = $(job).find('a').attr('title');
-      const company = $(job).find('.job-company').text().trim();
-      const place = $(job).find('.job-place').text().trim();
-      const type = $(job).find('.job-type').text().trim();
-      const date = $(job).find('.job-date').text().trim();
+      const title = await jobElem.$eval('a', (elem) => elem.getAttribute('title'));
+      const company = await jobElem.$eval('.job-company', (elem) => elem.textContent.trim());
+      const place = await jobElem.$eval('.job-place', (elem) => elem.textContent.trim());
+      const type = await jobElem.$eval('.job-type', (elem) => elem.textContent.trim());
+      const date = await jobElem.$eval('.job-date', (elem) => elem.textContent.trim());
 
-      // add data to jobs array
+      // extract data
       jobs.push({ title, company, place, type, date });
-    });
+    }
+
+    // close browser
+    await browser.close();
 
     // output scraped jobs
     console.log(`Jobs on page ${ page } successfully scraped!`);
-    // console.dir(jobs);
+    console.dir(jobs);
 
     return jobs;
 
   } catch(err) {
     console.error(`Error scraping jobs on page ${ page }: ${ err.message }`);
+    return [];
   }
 };
 
-const scrapeMultiplePages = async(numPages) => {
-  const allJobs = [];
-
-  // iterate through all pages
-  for (let page = 1; page <= numPages; page++) {
-    const jobs = await scrapeJobs(page);
-    allJobs.push(...jobs);
-  }
-
-  return allJobs;
-};
-
-// function for writing jobs to CSV
 const writeJobsToCsv = async(data) => {
   // create CSV writer w/ specified header fields
   const csvWriter = createCsvWriter({
@@ -96,12 +83,34 @@ const writeJobsToCsv = async(data) => {
   }
 };
 
+const scrapeMultiplePages = async(numPages) => {
+  const allJobs = [];
+
+  try {
+    const browser = await puppeteer.launch({ headless: 'new' });
+
+    // iterate through all pages
+    for (let page = 1; page <= numPages; page++) {
+      const jobs = await scrapeJobs(browser, page);
+
+      if (jobs) {
+        allJobs.push(...jobs);
+      }
+    }
+
+    // close browser instance & return jobs
+    await browser.close();
+    return allJobs;
+
+  } catch(err) {
+    console.error(`Error during scraping: ${ err.message }`);
+    return [];
+  }
+};
+
 // scrape site —> write data to CSV
 (async() => {
   // write jobs to CSV **
-  // const jobs = await scrapeJobs('https://www.ranchwork.com/jcategory/seeking-ranch-job');
-  // writeJobsToCsv(jobs);
-
   const jobs = await scrapeMultiplePages(49);
   writeJobsToCsv(jobs);
 })();
