@@ -84,7 +84,7 @@ const scrapeJobs = async(page) => {
         const email = specifics[ 'Email' ];
         const phone = specifics[ 'Phone' ];
         const salary = specifics[ 'Salary' ];
-        const housing = specifics[ 'Housing Needed' ];
+        // const housing = specifics[ 'Housing Needed' ];
         const experience = specifics[ 'Experience' ];
 
         // add data to jobs array
@@ -94,7 +94,7 @@ const scrapeJobs = async(page) => {
           email,
           phone,
           salary,
-          housing,
+          // housing,
           experience,
           place,
           type,
@@ -204,8 +204,6 @@ const scrapeMultiplePages = async(scraper, numPages) => {
     const data = await scraper(page);
 
     result.push(...data);
-    // if (Array.isArray(data)) {
-    // }
   }
 
   return result;
@@ -213,21 +211,28 @@ const scrapeMultiplePages = async(scraper, numPages) => {
 
 // function for writing jobs / seekers to CSV **
 const writeToCsv = async(type, data) => {
-  // create CSV writer w/ specified header fields
+  // specified header fields
+  const headers = [
+    { id: 'title', title: 'Title' },
+    { id: 'company', title: 'Company' },
+    { id: 'email', title: 'Email' },
+    { id: 'phone', title: 'Phone' },
+    { id: 'place', title: 'Place' },
+    { id: 'salary', title: 'Salary' },
+    { id: 'experience', title: 'Experience' },
+    { id: 'type', title: 'Type' },
+    { id: 'date', title: 'Date' }
+  ];
+
+  // conditionally add 'housing' field for seekers
+  if (type === 'seekers') {
+    headers.splice(6, 0, { id: 'housing', title: 'Housing' });
+  }
+
+  // create CSV writer w/ updated header
   const csvWriter = createCsvWriter({
     path: `csv/${ type }.csv`,
-    header: [
-      { id: 'title', title: 'Title' },
-      { id: 'company', title: 'Company' },
-      { id: 'email', title: 'Email' },
-      { id: 'phone', title: 'Phone' },
-      { id: 'place', title: 'Place' },
-      { id: 'salary', title: 'Salary' },
-      { id: 'housing', title: 'Housing' },
-      { id: 'experience', title: 'Experience' },
-      { id: 'type', title: 'Type' },
-      { id: 'date', title: 'Date' }
-    ]
+    headers: headers
   });
 
   try {
