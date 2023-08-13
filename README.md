@@ -8,7 +8,7 @@ This is a Node.js application that scrapes data from a website & stores it in a 
 ```bash
 npm install
 ```
-3. Create an **.env** file in the root directory of the project & define the **PORT** environment variable:
+3. Create an `.env` file in the root directory of the project & define the `PORT` environment variable:
 ```makefile
 PORT=3000
 ```
