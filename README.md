@@ -20,7 +20,7 @@ To run the scraper & generate the CSV file, simply execute the following command
 npm start
 ```
 
-The application will fetch the HTML content from the specified website, scrape the data using cheerio, & then write the data into a CSV file named quotes.csv in the csv folder.
+The application will fetch the HTML content from the specified website, scrape the data using cheerio, & then write the data into a CSV file in the `csv` folder.
 
 
 ## Dependencies
