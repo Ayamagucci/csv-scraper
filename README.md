@@ -1,4 +1,4 @@
-# Quotes Scraper
+# CSV Scraper
 This is a Node.js application that scrapes data from a website & stores it in a CSV file.
 
 
